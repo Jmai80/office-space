@@ -1,0 +1,733 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  Chair.js
+  Corridor.js
+  Desk.js
+  Floorplan.js
+  Laptop.js
+  main.js
+  Mirror.js
+  Plant.js
+  Player.js
+  Room.js
+  style.css
+  Textures.js
+  WallBuilder.js
+.gitignore
+index.html
+package.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/Chair.js">
+import * as THREE from 'three'
+
+export function createChair() {
+  const chair = new THREE.Group()
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2e3338 })
+  const seatH = 0.45
+
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.45), mat)
+  seat.position.y = seatH
+  chair.add(seat)
+
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.05), mat)
+  back.position.set(0, seatH + 0.25, -0.2)
+  chair.add(back)
+
+  const legGeo = new THREE.BoxGeometry(0.05, seatH, 0.05)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(legGeo, mat)
+      leg.position.set(sx * 0.185, seatH / 2, sz * 0.185)
+      chair.add(leg)
+    }
+  }
+
+  return chair
+}
+</file>
+
+<file path="src/Corridor.js">
+import * as THREE from 'three'
+
+export function createCorridor(length, depth, height) {
+  const corridor = new THREE.Group()
+  const material = new THREE.MeshStandardMaterial({ color: 0xb0a99f })
+  const thickness = 0.2
+  const wy = height / 2
+
+  function makeWall(w, h, d, x, y, z) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
+    wall.position.set(x, y, z)
+    corridor.add(wall)
+  }
+
+  // bortre långväggen – parallell med dörrväggen, löper längs x
+  makeWall(length, height, thickness, 0, wy, -depth)
+
+  // gavlar i båda ändar – löper längs z
+  makeWall(thickness, height, depth, -length / 2, wy, -depth / 2)
+  makeWall(thickness, height, depth,  length / 2, wy, -depth / 2)
+
+  return corridor
+}
+</file>
+
+<file path="src/Desk.js">
+import * as THREE from 'three'
+export function createDesk({ monitor = true } = {}) {
+  const desk = new THREE.Group()
+  const wood  = new THREE.MeshStandardMaterial({ color: 0x6b4f3a })
+  const metal = new THREE.MeshStandardMaterial({ color: 0x3a3a3a })
+
+  const topW = 1.6, topD = 0.8, topH = 0.05, legH = 0.72
+
+  // bordsskiva
+  const top = new THREE.Mesh(new THREE.BoxGeometry(topW, topH, topD), wood)
+  top.position.y = legH + topH / 2
+  desk.add(top)
+
+  // fyra ben
+  const legGeo = new THREE.BoxGeometry(0.06, legH, 0.06)
+  const inset = 0.08
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(legGeo, metal)
+      leg.position.set(sx * (topW / 2 - inset), legH / 2, sz * (topD / 2 - inset))
+      desk.add(leg)
+    }
+  }
+
+  // en skärm för lite kontorskänsla
+  if (monitor) {
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.04), metal)
+    screen.position.set(0, legH + topH + 0.16, 0.15)
+    desk.add(screen)
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.05), metal)
+    stand.position.set(0, legH + topH + 0.04, 0.15)
+    desk.add(stand)
+  }
+
+  return desk
+}
+</file>
+
+<file path="src/Floorplan.js">
+import * as THREE from 'three'
+import { buildWalls } from './WallBuilder.js'
+import { wallMaterial } from './Textures.js'
+
+export function createFloorplan(height) {
+  const base    = wallMaterial('#b0a99f', '#8f897f')  // neutral grundton
+  const northMat = wallMaterial('#9fb1c6', '#76869b') // dämpat blått
+  const southMat = wallMaterial('#a9bf9c', '#7f9472') // dämpat grönt
+  const eastMat  = wallMaterial('#ccb188', '#9e8456') // sand
+  const westMat  = wallMaterial('#c2a6b4', '#937787') // dämpat rosa
+  const room1Mat = wallMaterial('#bdb6a6', '#938c7d') // varmt grått
+
+  const door = (at) => ({ at, width: 1.2 })
+
+  const walls = [
+    // norra/södra skalet (= bortre vägg i norra/södra rummet)
+    { x1: -20, z1: -20, x2: 20, z2: -20, material: northMat },
+    { x1: -20, z1:  20, x2: 20, z2:  20, material: southMat },
+
+    // västra skalet, uppdelat (mittbiten = västra rummets bortre vägg)
+    { x1: -20, z1: -20, x2: -20, z2: -8 },
+    { x1: -20, z1:  -8, x2: -20, z2:  8, material: westMat },
+    { x1: -20, z1:   8, x2: -20, z2: 20 },
+
+    // östra skalet, uppdelat
+    { x1: 20, z1: -20, x2: 20, z2: -8 },
+    { x1: 20, z1:  -8, x2: 20, z2:  8, material: eastMat },
+    { x1: 20, z1:   8, x2: 20, z2: 20 },
+
+    // korridorens ytterväggar (neutrala, med dörrar)
+    { x1: -20, z1: -8, x2: 20, z2: -8, doors: [door(0)] },
+    { x1: -20, z1:  8, x2: 20, z2:  8, doors: [door(0)] },
+    { x1:   8, z1: -8, x2:  8, z2:  8, doors: [door(0)] },
+    { x1:  -8, z1: -8, x2: -8, z2:  8, doors: [door(0)] },
+
+    // Rum 1 i mitten
+    { x1: -6, z1: -6, x2:  6, z2: -6, doors: [door(0)], material: room1Mat },
+    { x1: -6, z1:  6, x2:  6, z2:  6, material: room1Mat },
+    { x1: -6, z1: -6, x2: -6, z2:  6, material: room1Mat },
+    { x1:  6, z1: -6, x2:  6, z2:  6, material: room1Mat },
+  ]
+
+  return buildWalls(walls, height, base)
+}
+</file>
+
+<file path="src/Laptop.js">
+import * as THREE from 'three'
+
+export function createLaptop() {
+  const laptop = new THREE.Group()
+  const body    = new THREE.MeshStandardMaterial({ color: 0x9a9a9a })
+  const display = new THREE.MeshStandardMaterial({ color: 0x223044 })
+
+  // underdel (tangentbord)
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.02, 0.22), body)
+  base.position.y = 0.01
+  laptop.add(base)
+
+  // skärm på ett gångjärn vid bakkanten
+  const hinge = new THREE.Group()
+  hinge.position.set(0, 0.02, -0.11)
+  laptop.add(hinge)
+
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.012), body)
+  screen.position.y = 0.1
+  hinge.add(screen)
+
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.16), display)
+  glass.position.set(0, 0.1, 0.007)
+  hinge.add(glass)
+
+  hinge.rotation.x = -0.4 // lutar skärmen bakåt = öppen
+
+  return laptop
+}
+</file>
+
+<file path="src/Mirror.js">
+import * as THREE from 'three'
+import { Reflector } from 'three/addons/objects/Reflector.js'
+
+export function createMirror(width, height) {
+  const geometry = new THREE.PlaneGeometry(width, height)
+  return new Reflector(geometry, {
+    color: 0x8a929c,
+    textureWidth: 1024,
+    textureHeight: 1024,
+  })
+}
+</file>
+
+<file path="src/Plant.js">
+import * as THREE from 'three'
+
+export function createPlant() {
+  const plant = new THREE.Group()
+
+  const pot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.13, 0.3, 16),
+    new THREE.MeshStandardMaterial({ color: 0xb5651d })
+  )
+  pot.position.y = 0.15
+  plant.add(pot)
+
+  const soil = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16),
+    new THREE.MeshStandardMaterial({ color: 0x3b2a1a })
+  )
+  soil.position.y = 0.3
+  plant.add(soil)
+
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f7d3a })
+  for (const [x, y, z, r] of [
+    [0, 0.55, 0, 0.22], [0.12, 0.7, 0.05, 0.18],
+    [-0.1, 0.72, -0.06, 0.16], [0.02, 0.85, 0.02, 0.14],
+  ]) {
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leafMat)
+    leaf.position.set(x, y, z)
+    plant.add(leaf)
+  }
+
+  return plant
+}
+</file>
+
+<file path="src/Player.js">
+import * as THREE from 'three'
+
+function makeLimb(geometry, material, length) {
+  const pivot = new THREE.Group()
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.position.y = -length / 2  // toppen hamnar vid pivotens origo
+  pivot.add(mesh)
+  return pivot
+}
+
+export class Player extends THREE.Group {
+  constructor() {
+    super()
+
+    const skin  = new THREE.MeshStandardMaterial({ color: 0xe0b89a })
+    const shirt = new THREE.MeshStandardMaterial({ color: 0x3f6fa3 })
+    const pants = new THREE.MeshStandardMaterial({ color: 0x2e3338 })
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 20), skin)
+    head.position.y = 1.62
+    this.add(head)
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12), skin)
+    neck.position.y = 1.48
+    this.add(neck)
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.24), shirt)
+    torso.position.y = 1.15
+    this.add(torso)
+
+    // armar – pivot vid axeln
+    this.leftArm = makeLimb(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 10), shirt, 0.55)
+    this.leftArm.position.set(-0.28, 1.42, 0)
+    this.add(this.leftArm)
+
+    this.rightArm = makeLimb(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 10), shirt, 0.55)
+    this.rightArm.position.set(0.28, 1.42, 0)
+    this.add(this.rightArm)
+
+    // ben – pivot vid höften
+    this.leftLeg = makeLimb(new THREE.CylinderGeometry(0.09, 0.09, 0.85, 10), pants, 0.85)
+    this.leftLeg.position.set(-0.11, 0.85, 0)
+    this.add(this.leftLeg)
+
+    this.rightLeg = makeLimb(new THREE.CylinderGeometry(0.09, 0.09, 0.85, 10), pants, 0.85)
+    this.rightLeg.position.set(0.11, 0.85, 0)
+    this.add(this.rightLeg)
+
+    this.moveSpeed = 5
+    this.turnSpeed = 2.5
+    this.walkTime = 0
+
+    this.raycaster = new THREE.Raycaster()
+    this.collisionBuffer = 0.4
+  }
+
+isBlocked(direction, colliders) {
+  // vinkelrät riktning i golvplanet, så strålarna kan utgå från kroppens kanter
+  const perp = new THREE.Vector3(-direction.z, 0, direction.x)
+  const halfWidth = 0.35
+  const offsets = [-halfWidth, 0, halfWidth]
+
+  for (const offset of offsets) {
+    const origin = this.position.clone()
+    origin.y = 1.0
+    origin.addScaledVector(perp, offset)
+    this.raycaster.set(origin, direction)
+    const hits = this.raycaster.intersectObjects(colliders, true)
+    if (hits.length > 0 && hits[0].distance < this.collisionBuffer) {
+      return true
+    }
+  }
+  return false
+}
+
+update(delta, keys, colliders) {
+  // svängning
+  if (keys['ArrowLeft'])  this.rotation.y += this.turnSpeed * delta
+  if (keys['ArrowRight']) this.rotation.y -= this.turnSpeed * delta
+
+  // tänkt förflyttning i världskoordinater
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.quaternion)
+  forward.y = 0
+  forward.normalize()
+
+  const move = new THREE.Vector3()
+  if (keys['ArrowUp'])   move.add(forward)
+  if (keys['ArrowDown']) move.sub(forward)
+
+  let moved = false
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(this.moveSpeed * delta)
+
+    // testa X- och Z-axeln var för sig → glid längs väggar
+    if (Math.abs(move.x) > 1e-4 &&
+        !this.isBlocked(new THREE.Vector3(Math.sign(move.x), 0, 0), colliders)) {
+      this.position.x += move.x
+      moved = true
+    }
+    if (Math.abs(move.z) > 1e-4 &&
+        !this.isBlocked(new THREE.Vector3(0, 0, Math.sign(move.z)), colliders)) {
+      this.position.z += move.z
+      moved = true
+    }
+  }
+
+  // gång-animation
+  if (moved) {
+    this.walkTime += delta * 8
+    const swing = Math.sin(this.walkTime) * 0.5
+    this.leftLeg.rotation.x  = swing
+    this.rightLeg.rotation.x = -swing
+    this.leftArm.rotation.x  = -swing
+    this.rightArm.rotation.x = swing
+  } else {
+    this.leftLeg.rotation.x  *= 0.8
+    this.rightLeg.rotation.x *= 0.8
+    this.leftArm.rotation.x  *= 0.8
+    this.rightArm.rotation.x *= 0.8
+  }
+}
+}
+</file>
+
+<file path="src/Room.js">
+import * as THREE from 'three'
+
+export function createRoom(width, depth, height) {
+  const room = new THREE.Group()
+  const material = new THREE.MeshStandardMaterial({ color: 0xb0a99f })
+  const thickness = 0.2
+
+  function makeWall(w, h, d, x, y, z) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
+    wall.position.set(x, y, z)
+    room.add(wall)
+  }
+
+  const wy = height / 2
+
+  // tre hela väggar
+  makeWall(width, height, thickness, 0, wy, depth / 2)    // främre
+  makeWall(thickness, height, depth, -width / 2, wy, 0)   // vänster
+  makeWall(thickness, height, depth, width / 2, wy, 0)    // höger
+
+  // bakre vägg med dörröppning (rakt fram när du startar)
+  const doorWidth = 1.2
+  const doorHeight = 2.2
+  const sideWidth = (width - doorWidth) / 2
+
+  makeWall(sideWidth, height, thickness, -(doorWidth / 2 + sideWidth / 2), wy, -depth / 2)  // vänster om dörren
+  makeWall(sideWidth, height, thickness, doorWidth / 2 + sideWidth / 2, wy, -depth / 2)     // höger om dörren
+  makeWall(doorWidth, height - doorHeight, thickness, 0, doorHeight + (height - doorHeight) / 2, -depth / 2)  // överstycke
+
+  return room
+}
+</file>
+
+<file path="src/Textures.js">
+import * as THREE from 'three'
+
+export function wallMaterial(baseColor, streakColor) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')
+
+  // grundfärg
+  ctx.fillStyle = baseColor
+  ctx.fillRect(0, 0, 256, 256)
+
+  // svaga vertikala streck = struktur
+  ctx.strokeStyle = streakColor
+  ctx.globalAlpha = 0.15
+  for (let x = 0; x < 256; x += 8) {
+    ctx.beginPath()
+    ctx.moveTo(x + Math.random() * 2, 0)
+    ctx.lineTo(x + Math.random() * 2, 256)
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(4, 1)
+
+  return new THREE.MeshStandardMaterial({ map: texture })
+}
+</file>
+
+<file path="src/WallBuilder.js">
+import * as THREE from 'three'
+
+const THICKNESS = 0.2
+
+// wallSpecs: lista av { x1, z1, x2, z2, doors? }
+// varje vägg är axelriktad: z1===z2 (löper längs x) eller x1===x2 (löper längs z)
+// doors: [{ at, width }] där `at` är dörrens mittpunkt längs väggen
+export function buildWalls(wallSpecs, height, defaultMaterial) {
+  const group = new THREE.Group()
+
+  for (const spec of wallSpecs) {
+    const horizontal = spec.z1 === spec.z2
+    const from = horizontal ? Math.min(spec.x1, spec.x2) : Math.min(spec.z1, spec.z2)
+    const to   = horizontal ? Math.max(spec.x1, spec.x2) : Math.max(spec.z1, spec.z2)
+
+    // klipp ut solida segment mellan dörröppningarna
+    const doors = (spec.doors || []).slice().sort((a, b) => a.at - b.at)
+    let cursor = from
+    const segments = []
+    for (const door of doors) {
+      const gapStart = door.at - door.width / 2
+      if (gapStart > cursor) segments.push([cursor, gapStart])
+      cursor = door.at + door.width / 2
+    }
+    if (to > cursor) segments.push([cursor, to])
+
+    // en låda per solitt segment
+    for (const [start, end] of segments) {
+      const span = end - start
+      const mid = (start + end) / 2
+      const geometry = horizontal
+        ? new THREE.BoxGeometry(span, height, THICKNESS)
+        : new THREE.BoxGeometry(THICKNESS, height, span)
+      const wall = new THREE.Mesh(geometry, defaultMaterial)
+      wall.position.set(
+        horizontal ? mid : spec.x1,
+        height / 2,
+        horizontal ? spec.z1 : mid
+      )
+      group.add(wall)
+    }
+  }
+
+  return group
+}
+</file>
+
+<file path="src/main.js">
+import './style.css'
+import * as THREE from 'three'
+import { Player } from './Player.js'
+import { createFloorplan } from './Floorplan.js'
+import { createDesk } from './Desk.js'
+import { createMirror } from './Mirror.js'
+import { createPlant } from './Plant.js'
+import { createChair } from './Chair.js'
+import { createLaptop } from './Laptop.js'
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x1e1e24)
+
+// kamera
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 1000
+)
+
+// renderaren
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.setPixelRatio(window.devicePixelRatio)
+document.body.appendChild(renderer.domElement)
+
+// golvet
+const floorGeometry = new THREE.PlaneGeometry(40, 40)
+const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 })
+const floor = new THREE.Mesh(floorGeometry, floorMaterial)
+floor.rotation.x = -Math.PI / 2
+scene.add(floor)
+
+// hela våningsplanet (väggar, korridor, rum)
+const floorplan = createFloorplan(3)
+scene.add(floorplan)
+
+// inredning i norra rummet
+const desk = createDesk()
+desk.position.set(-4, 0, -15)
+scene.add(desk)
+
+const mirror = createMirror(2.4, 2.2)
+mirror.position.set(0, 1.25, -19.88)
+scene.add(mirror)
+
+// inredning i västra rummet
+const plant = createPlant()
+plant.position.set(-19, 0, 7) // hörnet närmast söder
+scene.add(plant)
+
+const westDesk = createDesk({ monitor: false })
+westDesk.position.set(-14, 0, -4)
+scene.add(westDesk)
+
+const laptop = createLaptop()
+laptop.position.set(-14, 0.77, -3.9) // ovanpå skivan (0.72 ben + 0.05 skiva)
+scene.add(laptop)
+
+const chair = createChair()
+chair.position.set(-14, 0, -2.9)
+chair.rotation.y = Math.PI // vänd så den tittar mot skrivbordet
+scene.add(chair)
+
+// allt som spelaren och kameran kan krocka med
+const colliders = [floorplan]
+
+// ljuset
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+scene.add(ambientLight)
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+directionalLight.position.set(5, 10, 7)
+scene.add(directionalLight)
+
+// spelaren
+const player = new Player()
+player.position.set(0, 0, 0)
+scene.add(player)
+
+// input
+const clock = new THREE.Clock()
+const keys = {}
+
+window.addEventListener('keydown', (event) => { keys[event.key] = true })
+window.addEventListener('keyup', (event) => { keys[event.key] = false })
+
+// kamera-config
+const cameraOffset = new THREE.Vector3(0, 1.9, 2.8) // bakom + ovanför
+const cameraRay = new THREE.Raycaster()
+const desiredCameraPos = new THREE.Vector3()
+const cameraTarget = new THREE.Vector3()
+
+// renderloop
+function animate() {
+  requestAnimationFrame(animate)
+
+  const delta = clock.getDelta()
+
+  player.update(delta, keys, colliders)
+
+  desiredCameraPos.copy(cameraOffset)
+  player.localToWorld(desiredCameraPos)
+
+  cameraTarget.set(player.position.x, player.position.y + 1.4, player.position.z)
+
+  const toCamera = desiredCameraPos.clone().sub(cameraTarget)
+  const desiredDist = toCamera.length()
+  toCamera.normalize()
+  cameraRay.set(cameraTarget, toCamera)
+  const camHits = cameraRay.intersectObjects(colliders, true)
+
+  let camDist = desiredDist
+  if (camHits.length > 0 && camHits[0].distance < desiredDist) {
+    camDist = camHits[0].distance - 0.15
+  }
+  camDist = Math.max(camDist, 0.3)
+
+  camera.position.copy(cameraTarget).addScaledVector(toCamera, camDist)
+  camera.lookAt(cameraTarget)
+
+  renderer.render(scene, camera)
+}
+
+animate()
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+})
+</file>
+
+<file path="src/style.css">
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Office Space</title>
+  </head>
+  <body>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="package.json">
+{
+  "name": "office-space",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
+  }
+}
+</file>
+
+</files>
