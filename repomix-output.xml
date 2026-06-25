@@ -1,0 +1,1115 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  BookShelf.js
+  Cabinet.js
+  Chair.js
+  Desk.js
+  Floorplan.js
+  Lamp.js
+  Laptop.js
+  main.js
+  Mirror.js
+  Plant.js
+  Player.js
+  preview.js
+  style.css
+  Textures.js
+  WallBuilder.js
+.gitignore
+index.html
+package.json
+preview.html
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/BookShelf.js">
+import * as THREE from 'three'
+
+// ── Blueprint för en bokhylla ─────────────────────────────────────────
+// Styrs av parametrar precis som Cabinet.js. Hyllplanen räknas ut från
+// height; böckerna slumpas (se det inramade blocket längre ner).
+export function createBookshelf({
+  width  = 0.9,      // bredd (lokal x)
+  height = 0.8,      // total höjd
+  depth  = 0.3,      // djup (lokal z) – öppningen pekar mot +z
+  color  = 0x6f4e37,
+} = {}) {
+  const shelf = new THREE.Group()
+
+  const frameMat = new THREE.MeshStandardMaterial({ color })
+  const t = 0.03     // tjocklek på sidor, topp, botten och hyllplan
+
+  // ── Stommen ───────────────────────────────────────────────────────
+  // två sidor
+  const sideGeo = new THREE.BoxGeometry(t, height, depth)
+  const left = new THREE.Mesh(sideGeo, frameMat)
+  left.position.set(-width / 2 + t / 2, height / 2, 0)
+  shelf.add(left)
+
+  const right = new THREE.Mesh(sideGeo, frameMat)
+  right.position.set(width / 2 - t / 2, height / 2, 0)
+  shelf.add(right)
+
+  // topp och botten
+  const plankGeo = new THREE.BoxGeometry(width, t, depth)
+  const bottom = new THREE.Mesh(plankGeo, frameMat)
+  bottom.position.set(0, t / 2, 0)
+  shelf.add(bottom)
+
+  const top = new THREE.Mesh(plankGeo, frameMat)
+  top.position.set(0, height - t / 2, 0)
+  shelf.add(top)
+
+  // baksida (tunn skiva längst bak)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(width, height, t), frameMat)
+  back.position.set(0, height / 2, -depth / 2 + t / 2)
+  shelf.add(back)
+
+  // ── Hyllplan ──────────────────────────────────────────────────────
+  // antal fack härleds ur höjden: ~ett fack per 35 cm, minst två
+  const rowCount = Math.max(2, Math.round(height / 0.35))
+  const innerBottom = t            // ovansidan av bottenskivan
+  const innerTop    = height - t   // undersidan av toppskivan
+  const cellH = (innerTop - innerBottom) / rowCount  // höjd per fack
+
+  // ytorna där böcker står (fack 0 vilar på bottenskivan; övriga får ett hyllplan)
+  const surfaceY = []
+  for (let r = 0; r < rowCount; r++) {
+    const y = innerBottom + r * cellH
+    surfaceY.push(y)
+    if (r > 0) {
+      const board = new THREE.Mesh(plankGeo, frameMat)
+      board.position.set(0, y - t / 2, 0)  // ovansidan hamnar exakt på y
+      shelf.add(board)
+    }
+  }
+
+  // ╔══════════════════════════════════════════════════════════════════╗
+  // ║   RANDOMISERADE BÖCKER   –   lek fritt med värdena här inne       ║
+  // ╚══════════════════════════════════════════════════════════════════╝
+
+  const rand = (min, max) => min + Math.random() * (max - min)  // slumptal
+
+  // palett av bokryggsfärger – en plockas slumpvis per bok
+  const bookColors = [0x8c3b3b, 0x3b5e8c, 0x4f7d4f, 0xb08a3e, 0x6f4e8c, 0xc46a3a]
+  const bookMats = bookColors.map((c) => new THREE.MeshStandardMaterial({ color: c }))
+
+  const innerWidth = width - 2 * t   // bredden böckerna delar på
+  const margin = 0.02                // liten lucka in från sidorna
+
+  // fyll varje fack med böcker, vänster → höger
+  for (const y of surfaceY) {
+    const maxBookH = cellH - t - 0.02            // får inte slå i hyllan ovanför
+    let x = -innerWidth / 2 + margin             // börja vid vänsterkanten
+
+    while (x < innerWidth / 2 - margin) {
+      // slumpa den här bokens mått och färg
+      const bookW = rand(0.025, 0.05)            // ryggens tjocklek
+      const bookH = rand(maxBookH * 0.55, maxBookH)  // höjd (skalas med facket)
+      const bookD = rand(depth * 0.6, depth * 0.8)   // hur djup boken är
+      const mat   = bookMats[Math.floor(Math.random() * bookMats.length)]
+
+      if (x + bookW > innerWidth / 2 - margin) break   // får inte plats → klar med facket
+
+      const book = new THREE.Mesh(new THREE.BoxGeometry(bookW, bookH, bookD), mat)
+      book.position.set(
+        x + bookW / 2,                 // nästa lediga plats i sidled
+        y + bookH / 2,                 // står på hyllytan
+        depth / 2 - bookD / 2 - 0.01,  // skjuts fram mot öppningen, jämn framkant
+      )
+      shelf.add(book)
+
+      // gå vidare; ibland en liten lucka (en "saknad" bok)
+      x += bookW + (Math.random() < 0.15 ? rand(0.02, 0.05) : 0.004)
+    }
+  }
+
+  // ╚═════════════════  slut på randomiserade böcker  ══════════════════╝
+
+  // alla delar kastar skugga (du har ju skuggor påslagna)
+  shelf.traverse((obj) => { if (obj.isMesh) obj.castShadow = true })
+
+  return shelf
+}
+</file>
+
+<file path="src/preview.js">
+import './style.css'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { createBookshelf } from './BookShelf.js' // ← anpassa namnet till din export
+
+// minimal scen – bara för att titta på en sak i taget
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x2a2a30)
+
+const camera = new THREE.PerspectiveCamera(
+  50, window.innerWidth / window.innerHeight, 0.1, 100
+)
+camera.position.set(1.5, 1.5, 2.5)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.setPixelRatio(window.devicePixelRatio)
+document.body.appendChild(renderer.domElement)
+
+// ljus så geometrin syns oavsett om lampans egen lampa är tänd
+scene.add(new THREE.AmbientLight(0xffffff, 0.6))
+const dir = new THREE.DirectionalLight(0xffffff, 1)
+dir.position.set(3, 5, 4)
+scene.add(dir)
+
+// rutnät + axlar: lampan svävar inte, och man ser skala och riktning
+scene.add(new THREE.GridHelper(6, 12))   // 6 m brett, 12 rutor → 0,5 m per ruta
+scene.add(new THREE.AxesHelper(0.5))     // röd = x, grön = y, blå = z
+
+// själva objektet vi vill granska
+const bookShelf = createBookshelf({ width: 1.4, height: 1.85, depth: 0.45, color: 0x8a5a2b })
+scene.add(bookShelf)
+
+// muskontroll: dra för att rotera, scrolla för att zooma
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.target.set(0, 0.5, 0) // sikta ungefär på lampans mitt
+controls.update()
+
+function animate() {
+  requestAnimationFrame(animate)
+  controls.update()
+  renderer.render(scene, camera)
+}
+animate()
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+})
+</file>
+
+<file path="src/Cabinet.js">
+import * as THREE from 'three'
+
+// Blueprint för ett sidoskåp / byrå.
+// Allt styrs av parametrar → ett nytt skåp är bara ett anrop med andra värden.
+export function createCabinet({
+  width  = 1.4,    // bredd (lokal x)
+  height = 0.85,   // total höjd inkl. ben
+  depth  = 0.45,   // djup (lokal z) – framsidan pekar mot +z
+  color  = 0x8a5a2b,
+} = {}) {
+  const cabinet = new THREE.Group()
+
+  // kroppen i vald färg, luckorna en aning ljusare, ben/handtag i mörk accent
+  const bodyColor  = new THREE.Color(color)
+  const frontColor = bodyColor.clone().multiplyScalar(1.15) // ljusare nyans av samma färg
+  const bodyMat   = new THREE.MeshStandardMaterial({ color: bodyColor })
+  const frontMat  = new THREE.MeshStandardMaterial({ color: frontColor })
+  const accentMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b })
+
+  const legH  = 0.1                          // korta ben
+  const bodyH = Math.max(height - legH, 0.1) // resten är skåpkroppen
+
+  // skåpkroppen
+  const body = new THREE.Mesh(new THREE.BoxGeometry(width, bodyH, depth), bodyMat)
+  body.position.y = legH + bodyH / 2
+  cabinet.add(body)
+
+  // lådfronter: ungefär en per 0,5 m bredd, minst en
+  const frontCount = Math.max(1, Math.round(width / 0.5))
+  const gap    = 0.03
+  const frontW = (width - gap * (frontCount + 1)) / frontCount
+  const frontH = bodyH - gap * 2
+  const frontGeo = new THREE.BoxGeometry(frontW, frontH, 0.02)
+
+  for (let i = 0; i < frontCount; i++) {
+    const cx = -width / 2 + gap + frontW / 2 + i * (frontW + gap)
+
+    const front = new THREE.Mesh(frontGeo, frontMat)
+    front.position.set(cx, legH + bodyH / 2, depth / 2 + 0.011) // strax utanför framsidan
+    cabinet.add(front)
+
+    const handle = new THREE.Mesh(
+      new THREE.BoxGeometry(frontW * 0.35, 0.02, 0.02),
+      accentMat
+    )
+    handle.position.set(cx, legH + bodyH * 0.7, depth / 2 + 0.03)
+    cabinet.add(handle)
+  }
+
+  // fyra ben
+  const legGeo = new THREE.BoxGeometry(0.06, legH, 0.06)
+  const inset = 0.05
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(legGeo, accentMat)
+      leg.position.set(sx * (width / 2 - inset), legH / 2, sz * (depth / 2 - inset))
+      cabinet.add(leg)
+    }
+  }
+
+  return cabinet
+}
+</file>
+
+<file path="src/Chair.js">
+import * as THREE from 'three'
+
+export function createChair() {
+  const chair = new THREE.Group()
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2e3338 })
+  const seatH = 0.45
+
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.45), mat)
+  seat.position.y = seatH
+  chair.add(seat)
+
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.05), mat)
+  back.position.set(0, seatH + 0.25, -0.2)
+  chair.add(back)
+
+  const legGeo = new THREE.BoxGeometry(0.05, seatH, 0.05)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(legGeo, mat)
+      leg.position.set(sx * 0.185, seatH / 2, sz * 0.185)
+      chair.add(leg)
+    }
+  }
+
+  return chair
+}
+</file>
+
+<file path="src/Floorplan.js">
+import * as THREE from 'three'
+import { buildWalls } from './WallBuilder.js'
+import { wallMaterial } from './Textures.js'
+
+export function createFloorplan(height) {
+  const base    = wallMaterial('#b0a99f', '#8f897f')  // neutral grundton
+  const northMat = wallMaterial('#9fb1c6', '#76869b') // dämpat blått
+  const southMat = wallMaterial('#a9bf9c', '#7f9472') // dämpat grönt
+  const eastMat  = wallMaterial('#ccb188', '#9e8456') // sand
+  const westMat  = wallMaterial('#c2a6b4', '#937787') // dämpat rosa
+  const room1Mat = wallMaterial('#bdb6a6', '#938c7d') // varmt grått
+
+  const door = (at) => ({ at, width: 1.2 })
+
+  const walls = [
+    // norra/södra skalet (= bortre vägg i norra/södra rummet)
+    { x1: -20, z1: -20, x2: 20, z2: -20, material: northMat },
+    { x1: -20, z1:  20, x2: 20, z2:  20, material: southMat },
+
+    // västra skalet, uppdelat (mittbiten = västra rummets bortre vägg)
+    { x1: -20, z1: -20, x2: -20, z2: -8 },
+    { x1: -20, z1:  -8, x2: -20, z2:  8, material: westMat },
+    { x1: -20, z1:   8, x2: -20, z2: 20 },
+
+    // östra skalet, uppdelat
+    { x1: 20, z1: -20, x2: 20, z2: -8 },
+    { x1: 20, z1:  -8, x2: 20, z2:  8, material: eastMat },
+    { x1: 20, z1:   8, x2: 20, z2: 20 },
+
+    // korridorens ytterväggar (neutrala, med dörrar)
+    { x1: -20, z1: -8, x2: 20, z2: -8, doors: [door(0)] },
+    { x1: -20, z1:  8, x2: 20, z2:  8, doors: [door(0)] },
+    { x1:   8, z1: -8, x2:  8, z2:  8, doors: [door(0)] },
+    { x1:  -8, z1: -8, x2: -8, z2:  8, doors: [door(0)] },
+
+    // Rum 1 i mitten
+    { x1: -6, z1: -6, x2:  6, z2: -6, doors: [door(0)], material: room1Mat },
+    { x1: -6, z1:  6, x2:  6, z2:  6, material: room1Mat },
+    { x1: -6, z1: -6, x2: -6, z2:  6, material: room1Mat },
+    { x1:  6, z1: -6, x2:  6, z2:  6, material: room1Mat },
+  ]
+
+  return buildWalls(walls, height, base)
+}
+</file>
+
+<file path="src/Lamp.js">
+import * as THREE from 'three'
+
+export function createLamp({ height = 1.75, color = 0x3b2a1a, intensity = 12 } = {}) {
+  const lamp = new THREE.Group()
+  const frameMat = new THREE.MeshStandardMaterial({ color })
+
+  const baseH  = 0.04
+  const shadeH = 0.22
+  const bulbR  = 0.07
+
+  const shadeBottom = height - shadeH
+  const bulbY       = shadeBottom + 0.04
+  const stemBottom  = baseH
+  const stemTop     = bulbY
+  const stemH       = stemTop - stemBottom
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, baseH, 16), frameMat)
+  base.position.y = baseH / 2
+  lamp.add(base)
+
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, stemH, 16), frameMat)
+  stem.position.y = stemBottom + stemH / 2
+  lamp.add(stem)
+
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(bulbR, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0xffe0b0, emissive: 0xffe0b0, emissiveIntensity: 1 })
+  )
+  bulb.position.y = bulbY
+  lamp.add(bulb)
+
+  const shade = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.20, shadeH, 16, 1, true),
+    new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide })
+  )
+  shade.position.y = shadeBottom + shadeH / 2
+  lamp.add(shade)
+
+  // SpotLight: en ljuskon som pekar rakt ner, och som kastar skugga
+  // (color, intensity, distance, angle, penumbra, decay)
+  const light = new THREE.SpotLight(0xffe0b0, intensity, 6, Math.PI / 4, 0.4, 2)
+  light.position.y = bulbY
+  light.target.position.y = 0      // riktas mot golvet → lyser nedåt
+  light.castShadow = true
+  light.shadow.mapSize.set(1024, 1024) // skärpa på skuggan
+  light.shadow.bias = -0.0005          // motar bort "skugg-akne" (flimrande ränder)
+  lamp.add(light)
+  lamp.add(light.target)           // målet måste också ligga i scenen
+
+  return lamp
+}
+</file>
+
+<file path="src/Laptop.js">
+import * as THREE from 'three'
+
+export function createLaptop() {
+  const laptop = new THREE.Group()
+  const body    = new THREE.MeshStandardMaterial({ color: 0x9a9a9a })
+  const display = new THREE.MeshStandardMaterial({ color: 0x223044 })
+
+  // underdel (tangentbord)
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.02, 0.22), body)
+  base.position.y = 0.01
+  laptop.add(base)
+
+  // skärm på ett gångjärn vid bakkanten
+  const hinge = new THREE.Group()
+  hinge.position.set(0, 0.02, -0.11)
+  laptop.add(hinge)
+
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.012), body)
+  screen.position.y = 0.1
+  hinge.add(screen)
+
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.16), display)
+  glass.position.set(0, 0.1, 0.007)
+  hinge.add(glass)
+
+  hinge.rotation.x = -0.4 // lutar skärmen bakåt = öppen
+
+  return laptop
+}
+</file>
+
+<file path="src/Mirror.js">
+import * as THREE from 'three'
+import { Reflector } from 'three/addons/objects/Reflector.js'
+
+export function createMirror(width, height) {
+  const geometry = new THREE.PlaneGeometry(width, height)
+  return new Reflector(geometry, {
+    color: 0x8a929c,
+    textureWidth: 1024,
+    textureHeight: 1024,
+  })
+}
+</file>
+
+<file path="src/Plant.js">
+import * as THREE from 'three'
+
+export function createPlant() {
+  const plant = new THREE.Group()
+
+  const pot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.13, 0.3, 16),
+    new THREE.MeshStandardMaterial({ color: 0xb5651d })
+  )
+  pot.position.y = 0.15
+  plant.add(pot)
+
+  const soil = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16),
+    new THREE.MeshStandardMaterial({ color: 0x3b2a1a })
+  )
+  soil.position.y = 0.3
+  plant.add(soil)
+
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f7d3a })
+  for (const [x, y, z, r] of [
+    [0, 0.55, 0, 0.22], [0.12, 0.7, 0.05, 0.18],
+    [-0.1, 0.72, -0.06, 0.16], [0.02, 0.85, 0.02, 0.14],
+  ]) {
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leafMat)
+    leaf.position.set(x, y, z)
+    plant.add(leaf)
+  }
+
+  return plant
+}
+</file>
+
+<file path="src/Player.js">
+import * as THREE from 'three'
+
+function makeLimb(geometry, material, length) {
+  const pivot = new THREE.Group()
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.position.y = -length / 2  // toppen hamnar vid pivotens origo
+  pivot.add(mesh)
+  return pivot
+}
+
+export class Player extends THREE.Group {
+  constructor() {
+    super()
+
+    const skin  = new THREE.MeshStandardMaterial({ color: 0xe0b89a })
+    const shirt = new THREE.MeshStandardMaterial({ color: 0x3f6fa3 })
+    const pants = new THREE.MeshStandardMaterial({ color: 0x2e3338 })
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 20), skin)
+    head.position.y = 1.62
+    this.add(head)
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12), skin)
+    neck.position.y = 1.48
+    this.add(neck)
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.24), shirt)
+    torso.position.y = 1.15
+    this.add(torso)
+
+    // armar – pivot vid axeln
+    this.leftArm = makeLimb(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 10), shirt, 0.55)
+    this.leftArm.position.set(-0.28, 1.42, 0)
+    this.add(this.leftArm)
+
+    this.rightArm = makeLimb(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 10), shirt, 0.55)
+    this.rightArm.position.set(0.28, 1.42, 0)
+    this.add(this.rightArm)
+
+    // ben – pivot vid höften
+    this.leftLeg = makeLimb(new THREE.CylinderGeometry(0.09, 0.09, 0.85, 10), pants, 0.85)
+    this.leftLeg.position.set(-0.11, 0.85, 0)
+    this.add(this.leftLeg)
+
+    this.rightLeg = makeLimb(new THREE.CylinderGeometry(0.09, 0.09, 0.85, 10), pants, 0.85)
+    this.rightLeg.position.set(0.11, 0.85, 0)
+    this.add(this.rightLeg)
+
+    this.moveSpeed = 5
+    this.turnSpeed = 2.5
+    this.walkTime = 0
+
+    this.raycaster = new THREE.Raycaster()
+    this.collisionBuffer = 0.4
+
+    // alla kroppsdelar ska kasta skugga
+    // (castShadow gäller per mesh — att sätta det på gruppen gör ingenting)
+    this.traverse((obj) => {
+      if (obj.isMesh) obj.castShadow = true
+    })
+  }
+
+isBlocked(direction, colliders) {
+  // vinkelrät riktning i golvplanet, så strålarna kan utgå från kroppens kanter
+  const perp = new THREE.Vector3(-direction.z, 0, direction.x)
+  const halfWidth = 0.35
+  const offsets = [-halfWidth, 0, halfWidth]
+
+  for (const offset of offsets) {
+    const origin = this.position.clone()
+    origin.y = 1.0
+    origin.addScaledVector(perp, offset)
+    this.raycaster.set(origin, direction)
+    const hits = this.raycaster.intersectObjects(colliders, true)
+    if (hits.length > 0 && hits[0].distance < this.collisionBuffer) {
+      return true
+    }
+  }
+  return false
+}
+
+update(delta, keys, colliders) {
+  // svängning
+  if (keys['ArrowLeft'])  this.rotation.y += this.turnSpeed * delta
+  if (keys['ArrowRight']) this.rotation.y -= this.turnSpeed * delta
+
+  // tänkt förflyttning i världskoordinater
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.quaternion)
+  forward.y = 0
+  forward.normalize()
+
+  const move = new THREE.Vector3()
+  if (keys['ArrowUp'])   move.add(forward)
+  if (keys['ArrowDown']) move.sub(forward)
+
+  let moved = false
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(this.moveSpeed * delta)
+
+    // testa X- och Z-axeln var för sig → glid längs väggar
+    if (Math.abs(move.x) > 1e-4 &&
+        !this.isBlocked(new THREE.Vector3(Math.sign(move.x), 0, 0), colliders)) {
+      this.position.x += move.x
+      moved = true
+    }
+    if (Math.abs(move.z) > 1e-4 &&
+        !this.isBlocked(new THREE.Vector3(0, 0, Math.sign(move.z)), colliders)) {
+      this.position.z += move.z
+      moved = true
+    }
+  }
+
+  // gång-animation
+  if (moved) {
+    this.walkTime += delta * 8
+    const swing = Math.sin(this.walkTime) * 0.5
+    this.leftLeg.rotation.x  = swing
+    this.rightLeg.rotation.x = -swing
+    this.leftArm.rotation.x  = -swing
+    this.rightArm.rotation.x = swing
+  } else {
+    this.leftLeg.rotation.x  *= 0.8
+    this.rightLeg.rotation.x *= 0.8
+    this.leftArm.rotation.x  *= 0.8
+    this.rightArm.rotation.x *= 0.8
+  }
+}
+}
+</file>
+
+<file path="src/Textures.js">
+import * as THREE from 'three'
+
+export function wallMaterial(baseColor, streakColor) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')
+
+  // grundfärg
+  ctx.fillStyle = baseColor
+  ctx.fillRect(0, 0, 256, 256)
+
+  // svaga vertikala streck = struktur
+  ctx.strokeStyle = streakColor
+  ctx.globalAlpha = 0.15
+  for (let x = 0; x < 256; x += 8) {
+    ctx.beginPath()
+    ctx.moveTo(x + Math.random() * 2, 0)
+    ctx.lineTo(x + Math.random() * 2, 256)
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(4, 1)
+
+  return new THREE.MeshStandardMaterial({ map: texture })
+}
+
+export function floorMaterial(baseColor = '#5c5f63', seamColor = '#3f4347') {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')
+
+  // grundfärg
+  ctx.fillStyle = baseColor
+  ctx.fillRect(0, 0, 256, 256)
+
+  // korn: massor av små ljusa och mörka prickar = mattkänsla
+  for (let i = 0; i < 4000; i++) {
+    const x = Math.random() * 256
+    const y = Math.random() * 256
+    const shade = Math.random() < 0.5 ? 255 : 0
+    ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, 0.04)`
+    ctx.fillRect(x, y, 2, 2)
+  }
+
+  // mörk söm runt kanten → bildar ett rutnät när plattorna upprepas
+  ctx.strokeStyle = seamColor
+  ctx.lineWidth = 4
+  ctx.strokeRect(0, 0, 256, 256)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(10, 10) // 10×10 plattor över 40 m → ca 4 m per platta
+
+  return new THREE.MeshStandardMaterial({ map: texture })
+}
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="package.json">
+{
+  "name": "office-space",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
+  }
+}
+</file>
+
+<file path="preview.html">
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lamp – förhandsgranskning</title>
+  </head>
+  <body>
+    <script type="module" src="/src/preview.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="src/Desk.js">
+import * as THREE from 'three'
+export function createDesk({ monitor = true } = {}) {
+  const desk = new THREE.Group()
+  const wood  = new THREE.MeshStandardMaterial({ color: 0x6b4f3a })
+  const metal = new THREE.MeshStandardMaterial({ color: 0x3a3a3a })
+
+  const topW = 1.6, topD = 0.8, topH = 0.05, legH = 0.72
+
+  // bordsskiva
+  const top = new THREE.Mesh(new THREE.BoxGeometry(topW, topH, topD), wood)
+  top.position.y = legH + topH / 2
+  top.castShadow = true
+  desk.add(top)
+
+  // fyra ben
+  const legGeo = new THREE.BoxGeometry(0.06, legH, 0.06)
+  const inset = 0.08
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(legGeo, metal)
+      leg.position.set(sx * (topW / 2 - inset), legH / 2, sz * (topD / 2 - inset))
+      desk.add(leg)
+    }
+  }
+
+  // en skärm för lite kontorskänsla
+  if (monitor) {
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.04), metal)
+    screen.position.set(0, legH + topH + 0.16, 0.15)
+    desk.add(screen)
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.05), metal)
+    stand.position.set(0, legH + topH + 0.04, 0.15)
+    desk.add(stand)
+  }
+
+  return desk
+}
+</file>
+
+<file path="src/style.css">
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+</file>
+
+<file path="src/WallBuilder.js">
+import * as THREE from 'three'
+
+const THICKNESS = 0.2
+const DOOR_HEIGHT = 2.1 // dörröppningens höjd; allt däröver blir överstycke
+
+// wallSpecs: lista av { x1, z1, x2, z2, doors?, material? }
+// varje vägg är axelriktad: z1===z2 (löper längs x) eller x1===x2 (löper längs z)
+// doors: [{ at, width }] där `at` är dörrens mittpunkt längs väggen
+export function buildWalls(wallSpecs, height, defaultMaterial) {
+  const group = new THREE.Group()
+
+  for (const spec of wallSpecs) {
+    const horizontal = spec.z1 === spec.z2
+    const material = spec.material || defaultMaterial
+    const from = horizontal ? Math.min(spec.x1, spec.x2) : Math.min(spec.z1, spec.z2)
+    const to   = horizontal ? Math.max(spec.x1, spec.x2) : Math.max(spec.z1, spec.z2)
+
+    const doors = (spec.doors || []).slice().sort((a, b) => a.at - b.at)
+
+    // 1) solida segment mellan dörröppningarna – fulla höjden
+    let cursor = from
+    const segments = []
+    for (const door of doors) {
+      const gapStart = door.at - door.width / 2
+      if (gapStart > cursor) segments.push([cursor, gapStart])
+      cursor = door.at + door.width / 2
+    }
+    if (to > cursor) segments.push([cursor, to])
+
+    for (const [start, end] of segments) {
+      const span = end - start
+      const mid = (start + end) / 2
+      const geometry = horizontal
+        ? new THREE.BoxGeometry(span, height, THICKNESS)
+        : new THREE.BoxGeometry(THICKNESS, height, span)
+      const wall = new THREE.Mesh(geometry, material)
+      wall.position.set(
+        horizontal ? mid : spec.x1,
+        height / 2,
+        horizontal ? spec.z1 : mid
+      )
+      group.add(wall)
+    }
+
+    // 2) överstycke ovanför varje dörr – från DOOR_HEIGHT upp till height
+    const lintelHeight = height - DOOR_HEIGHT
+    if (lintelHeight > 0) {
+      for (const door of doors) {
+        const geometry = horizontal
+          ? new THREE.BoxGeometry(door.width, lintelHeight, THICKNESS)
+          : new THREE.BoxGeometry(THICKNESS, lintelHeight, door.width)
+        const lintel = new THREE.Mesh(geometry, material)
+        lintel.position.set(
+          horizontal ? door.at : spec.x1,
+          DOOR_HEIGHT + lintelHeight / 2,
+          horizontal ? spec.z1 : door.at
+        )
+        group.add(lintel)
+      }
+    }
+  }
+
+  return group
+}
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Office Space</title>
+  </head>
+  <body>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="src/main.js">
+import './style.css'
+import * as THREE from 'three'
+import { Player } from './Player.js'
+import { createFloorplan } from './Floorplan.js'
+import { createDesk } from './Desk.js'
+import { createMirror } from './Mirror.js'
+import { createPlant } from './Plant.js'
+import { createChair } from './Chair.js'
+import { createLaptop } from './Laptop.js'
+import { createCabinet } from './Cabinet.js'
+import { floorMaterial } from './Textures.js'
+import { createLamp } from './Lamp.js'
+import { createBookshelf } from './BookShelf.js'
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x1e1e24)
+
+// kamera
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 1000
+)
+
+// renderaren
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.setPixelRatio(window.devicePixelRatio)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap // mjukare skuggkanter
+document.body.appendChild(renderer.domElement)
+
+// golvet
+const floorGeometry = new THREE.PlaneGeometry(40, 40)
+const floorMat = floorMaterial()
+const floor = new THREE.Mesh(floorGeometry, floorMat)
+floor.receiveShadow = true
+floor.rotation.x = -Math.PI / 2
+scene.add(floor)
+
+// hela våningsplanet (väggar, korridor, rum)
+const floorplan = createFloorplan(3)
+scene.add(floorplan)
+
+// inredning i norra rummet
+const desk = createDesk()
+desk.position.set(-4, 0, -15)
+scene.add(desk)
+
+const mirror = createMirror(2.4, 2.2)
+mirror.position.set(0, 1.25, -19.88)
+scene.add(mirror)
+
+const cabinet3 = createCabinet({ width: 1.6, height: 0.85, color: 0x6f4e37 })
+cabinet3.position.set(4.5, 0, -8.5)
+cabinet3.rotation.y = -Math.PI
+scene.add(cabinet3)
+
+const lamp3 = createLamp()
+lamp3.position.set(2, 0, -8.5)
+scene.add(lamp3)
+
+
+// inredning i västra rummet
+const plant = createPlant()
+plant.position.set(-19, 0, 7) // hörnet närmast söder
+scene.add(plant)
+
+const westDesk = createDesk({ monitor: false })
+westDesk.position.set(-14, 0, -4)
+scene.add(westDesk)
+
+const laptop = createLaptop()
+laptop.position.set(-14, 0.77, -3.9) // ovanpå skivan (0.72 ben + 0.05 skiva)
+scene.add(laptop)
+
+const chair = createChair()
+chair.position.set(-14, 0, -2.9)
+chair.rotation.y = Math.PI // vänd så den tittar mot skrivbordet
+scene.add(chair)
+
+// två sidoskåp i Rum 1, längs östra och västra väggen
+const cabinet1 = createCabinet({ width: 1.6, height: 0.85, color: 0x6f4e37 })
+cabinet1.position.set(5.5, 0, 0)
+cabinet1.rotation.y = -Math.PI / 2 // framsidan vänd in mot rummet (mot −x)
+scene.add(cabinet1)
+
+const cabinet2 = createCabinet({ width: 1.6, height: 1.85, color: 0x4f4e37 })
+cabinet2.position.set(-5.5, 0, 0.5)
+cabinet2.rotation.y = Math.PI / 2 // framsidan vänd in mot rummet (mot +x)
+scene.add(cabinet2)
+
+// inredning i södra rummet
+const bookshelf = createBookshelf({ height: 2.5, width: 1.5 })
+bookshelf.position.set(14, 0, 19.7)
+bookshelf.rotation.y = Math.PI // framsidan vänd in mot rummet (mot +x)
+scene.add(bookshelf)
+
+const bookshelf2 = createBookshelf({ height: 1.85, width: 1.4, depth: 0.45, color: 0x8a5a2b })
+bookshelf2.position.set(18, 0, 19.7)
+bookshelf2.rotation.y = Math.PI // framsidan vänd in mot rummet (mot +x)
+scene.add(bookshelf2)
+
+const cabinet4 = createCabinet({ width: 1.6, height: 0.85, color: 0x6f4e37 })
+cabinet4.position.set(16, 0, 19.7)
+cabinet4.rotation.y = -Math.PI // framsidan vänd in mot rummet (mot −x)
+scene.add(cabinet4)
+
+const bookshelf3 = createBookshelf({ height: 1.85, width: 1.4, depth: 0.45, color: 0x8a5a2b })
+bookshelf3.position.set(19.7, 0, 15.7)
+bookshelf3.rotation.y = -Math.PI / 2 // framsidan vänd in mot rummet (mot −z)
+scene.add(bookshelf3)
+
+const bookshelf4 = createBookshelf({ height: 1.85, width: 1.4, depth: 0.45, color: 0x8a5a2b })
+bookshelf4.position.set(2, 0, 19.7)
+bookshelf4.rotation.y = -Math.PI // framsidan vänd in mot rummet (mot −z)
+scene.add(bookshelf4)
+
+const plant2 = createPlant()
+plant2.position.set(4, 0, 19.7) // hörnet närmast väster
+scene.add(plant2)
+
+// lampor
+// i västra rummet
+const lamp1 = createLamp()
+lamp1.position.set(-8.5, 0, -1)
+scene.add(lamp1)
+
+// i västra rummet ovanpå skrivbordet
+const lamp2 = createLamp({ height: 0.7 })
+lamp2.position.set(-14.5, 0.75, -4)
+scene.add(lamp2)
+
+
+// växter
+const plantSpots = [
+  [4.5, 0, 4.5],    // Rum 1 i mitten – startrummet, bortre hörnet
+  [18, 0, -18],     // norra rummet – nordöstra hörnet
+  [-18, 0, 18],     // södra rummet – sydvästra hörnet
+  [18.5, 0, -6.5],  // östra rummet – bortre hörnet
+]
+for (const [x, y, z] of plantSpots) {
+  const p = createPlant()
+  p.position.set(x, y, z)
+  scene.add(p)
+}
+
+// allt som spelaren och kameran kan krocka med
+const colliders = [floorplan]
+
+// ljuset
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+scene.add(ambientLight)
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+directionalLight.position.set(5, 10, 7)
+scene.add(directionalLight)
+
+// spelaren
+const player = new Player()
+player.position.set(18, 0, 12)
+scene.add(player)
+
+// input
+const clock = new THREE.Clock()
+const keys = {}
+
+window.addEventListener('keydown', (event) => { keys[event.key] = true })
+window.addEventListener('keyup', (event) => { keys[event.key] = false })
+
+// kamera-config
+const cameraOffset = new THREE.Vector3(0, 1.9, 2.8) // bakom + ovanför
+const cameraRay = new THREE.Raycaster()
+const desiredCameraPos = new THREE.Vector3()
+const cameraTarget = new THREE.Vector3()
+
+// renderloop
+function animate() {
+  requestAnimationFrame(animate)
+
+  const delta = clock.getDelta()
+
+  player.update(delta, keys, colliders)
+
+  desiredCameraPos.copy(cameraOffset)
+  player.localToWorld(desiredCameraPos)
+
+  cameraTarget.set(player.position.x, player.position.y + 1.4, player.position.z)
+
+  const toCamera = desiredCameraPos.clone().sub(cameraTarget)
+  const desiredDist = toCamera.length()
+  toCamera.normalize()
+  cameraRay.set(cameraTarget, toCamera)
+  const camHits = cameraRay.intersectObjects(colliders, true)
+
+  let camDist = desiredDist
+  if (camHits.length > 0 && camHits[0].distance < desiredDist) {
+    camDist = camHits[0].distance - 0.15
+  }
+  camDist = Math.max(camDist, 0.3)
+
+  camera.position.copy(cameraTarget).addScaledVector(toCamera, camDist)
+  camera.lookAt(cameraTarget)
+
+  renderer.render(scene, camera)
+}
+
+animate()
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+})
+</file>
+
+</files>

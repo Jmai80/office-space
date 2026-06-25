@@ -52,6 +52,12 @@ export class Player extends THREE.Group {
 
     this.raycaster = new THREE.Raycaster()
     this.collisionBuffer = 0.4
+
+    // alla kroppsdelar ska kasta skugga
+    // (castShadow gäller per mesh — att sätta det på gruppen gör ingenting)
+    this.traverse((obj) => {
+      if (obj.isMesh) obj.castShadow = true
+    })
   }
 
 isBlocked(direction, colliders) {

@@ -1,7 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { createLamp } from './Lamp.js' // ← anpassa namnet till din export
+import { createBookshelf } from './BookShelf.js' // ← anpassa namnet till din export
 
 // minimal scen – bara för att titta på en sak i taget
 const scene = new THREE.Scene()
@@ -28,8 +28,8 @@ scene.add(new THREE.GridHelper(6, 12))   // 6 m brett, 12 rutor → 0,5 m per ru
 scene.add(new THREE.AxesHelper(0.5))     // röd = x, grön = y, blå = z
 
 // själva objektet vi vill granska
-const lamp = createLamp() // ← byt till dina parametrar, t.ex. { type: 'floor' }
-scene.add(lamp)
+const bookShelf = createBookshelf({ width: 1.4, height: 1.85, depth: 0.45, color: 0x8a5a2b })
+scene.add(bookShelf)
 
 // muskontroll: dra för att rotera, scrolla för att zooma
 const controls = new OrbitControls(camera, renderer.domElement)
