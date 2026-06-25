@@ -9,6 +9,7 @@ export function createDesk({ monitor = true } = {}) {
   // bordsskiva
   const top = new THREE.Mesh(new THREE.BoxGeometry(topW, topH, topD), wood)
   top.position.y = legH + topH / 2
+  top.castShadow = true
   desk.add(top)
 
   // fyra ben

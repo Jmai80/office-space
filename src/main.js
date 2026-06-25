@@ -7,7 +7,9 @@ import { createMirror } from './Mirror.js'
 import { createPlant } from './Plant.js'
 import { createChair } from './Chair.js'
 import { createLaptop } from './Laptop.js'
+import { createCabinet } from './Cabinet.js'
 import { floorMaterial } from './Textures.js'
+import { createLamp } from './Lamp.js'
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x1e1e24)
@@ -21,12 +23,15 @@ const camera = new THREE.PerspectiveCamera(
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(window.devicePixelRatio)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap // mjukare skuggkanter
 document.body.appendChild(renderer.domElement)
 
 // golvet
 const floorGeometry = new THREE.PlaneGeometry(40, 40)
 const floorMat = floorMaterial()
 const floor = new THREE.Mesh(floorGeometry, floorMat)
+floor.receiveShadow = true
 floor.rotation.x = -Math.PI / 2
 scene.add(floor)
 
@@ -42,6 +47,16 @@ scene.add(desk)
 const mirror = createMirror(2.4, 2.2)
 mirror.position.set(0, 1.25, -19.88)
 scene.add(mirror)
+
+const cabinet3 = createCabinet({ width: 1.6, height: 0.85, color: 0x6f4e37 })
+cabinet3.position.set(4.5, 0, -8.5)
+cabinet3.rotation.y = -Math.PI
+scene.add(cabinet3)
+
+const lamp3 = createLamp()
+lamp3.position.set(2, 0, -8.5)
+scene.add(lamp3)
+
 
 // inredning i västra rummet
 const plant = createPlant()
@@ -61,6 +76,42 @@ chair.position.set(-14, 0, -2.9)
 chair.rotation.y = Math.PI // vänd så den tittar mot skrivbordet
 scene.add(chair)
 
+// två sidoskåp i Rum 1, längs östra och västra väggen
+const cabinet1 = createCabinet({ width: 1.6, height: 0.85, color: 0x6f4e37 })
+cabinet1.position.set(5.5, 0, 0)
+cabinet1.rotation.y = -Math.PI / 2 // framsidan vänd in mot rummet (mot −x)
+scene.add(cabinet1)
+
+const cabinet2 = createCabinet({ width: 1.6, height: 1.85, color: 0x4f4e37 })
+cabinet2.position.set(-5.5, 0, 0.5)
+cabinet2.rotation.y = Math.PI / 2 // framsidan vänd in mot rummet (mot +x)
+scene.add(cabinet2)
+
+// lampor
+// i västra rummet
+const lamp1 = createLamp()
+lamp1.position.set(-8.5, 0, -1)
+scene.add(lamp1)
+
+// i västra rummet ovanpå skrivbordet
+const lamp2 = createLamp({ height: 0.7 })
+lamp2.position.set(-14.5, 0.75, -4)
+scene.add(lamp2)
+
+
+// växter
+const plantSpots = [
+  [4.5, 0, 4.5],    // Rum 1 i mitten – startrummet, bortre hörnet
+  [18, 0, -18],     // norra rummet – nordöstra hörnet
+  [-18, 0, 18],     // södra rummet – sydvästra hörnet
+  [18.5, 0, -6.5],  // östra rummet – bortre hörnet
+]
+for (const [x, y, z] of plantSpots) {
+  const p = createPlant()
+  p.position.set(x, y, z)
+  scene.add(p)
+}
+
 // allt som spelaren och kameran kan krocka med
 const colliders = [floorplan]
 
@@ -74,7 +125,7 @@ scene.add(directionalLight)
 
 // spelaren
 const player = new Player()
-player.position.set(0, 0, 0)
+player.position.set(1, 0, -8)
 scene.add(player)
 
 // input
